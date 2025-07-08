@@ -1,0 +1,12 @@
+# Ignore Cargo build artifacts
+target/
+
+# Ignore Rust Rover specific files (if applicable, good practice)
+.idea/
+
+# Ignore VSCode specific files (if applicable, good practice)
+.vscode/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
