@@ -4,18 +4,27 @@
 
 use crate::tvc::DataStateVector; // Import the DataStateVector struct
 use crate::error::Error;        // Import the project's custom Error type
+use zstd; // For Zstandard decompression
 
 /// Reconstitutes the original data from a DataStateVector.
 ///
-/// This function will eventually perform decompression and any other necessary
-/// steps to restore the data to its original form, based on the information
-/// stored in the DataStateVector.
-#[allow(unused_variables)] // To silence warnings for the `vector` parameter until implemented
+/// This function performs Zstandard decompression on the `compressed_payload`
+/// of the given `DataStateVector` to restore the original data.
 pub fn reconstitute(vector: &DataStateVector) -> Result<Vec<u8>, Error> {
-    // Implementation details:
     // 1. Decompress `vector.compressed_payload` using zstd.
-    // 2. Optionally, verify the reconstituted data against `vector.statistical_fingerprint`
-    //    if the original data is not needed for this (or perform this check elsewhere).
+    // The `decode_all` function takes a slice of compressed bytes.
+    let decompressed_data = zstd::decode_all(vector.compressed_payload.as_slice())
+        .map_err(|e| Error::DecompressionError(format!("ZSTD decompression failed: {}", e)))?;
+
+    // Note: The directive mentions optionally verifying against statistical_fingerprint.
+    // This function's primary role is reconstitution. Verification can be a separate step
+    // or responsibility, possibly in the DIEE module or by the caller if needed.
+    // For now, we just return the decompressed data.
+    // If `vector.structural_metadata.original_size` is critical for buffer allocation
+    // or as a primary check for `decode_all`, zstd's streaming API might be more suitable
+    // as `decode_all` doesn't directly use it for simple cases.
+    // However, `decode_all` is fine for this PoC.
+
     // 3. Return the reconstituted data.
-    todo!("Implement the reconstitute function");
+    Ok(decompressed_data)
 }
