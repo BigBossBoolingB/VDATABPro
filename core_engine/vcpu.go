@@ -119,10 +119,11 @@ func (vcpu *VCPU) initRegisters() error {
 	// A common starting point is often real mode, with bootloader setting up protected mode.
 	// To start in real mode, ensure PE bit (bit 0) of CR0 is 0.
 	// KVM often starts VCPUs in real mode by default.
-	// Let's ensure PE is 0 for a basic real-mode start.
-	sregs.CR0 &^= 1 // Clear PE bit for real mode. KVM might set it to 0x60000010 by default.
-	                // A more robust real mode setup would be CR0 = 0x10 or similar.
-					// For simplicity, we rely on KVM's defaults or what a loaded BIOS would set.
+	// To enter protected mode, the PE bit (bit 0) of CR0 must be set.
+	sregs.CR0 |= 1 // Set PE bit (Protection Enable)
+	// Other CR0 bits (like PG for paging) will be set later by guest OS.
+	// KVM might initialize CR0 to something like 0x60000010 (real mode with some flags).
+	// Setting PE turns it into 0x60000011 or similar.
 
 	// Set GDTR
 	// The GDT is constructed and loaded by VirtualMachine at a known address (e.g., 0x500).

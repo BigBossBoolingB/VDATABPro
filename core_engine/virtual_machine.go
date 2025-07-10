@@ -118,31 +118,31 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 	// If building core_engine and running its binary from elsewhere, this path needs care.
 	// For now, assuming a relative path from where the executable might be, or it's in CWD.
 	// A more robust solution would use an absolute path or path relative to executable.
-	// For this step, we'll try `../boot.bin` as if running from within `core_engine` after `cd`.
-	// And a fallback to `boot.bin` if running from project root.
-	bootBinaryPath := "../boot.bin" // Primary attempt for `cd core_engine && go run ...`
+	// For this step, we'll try `../boot_pm.bin` as if running from within `core_engine` after `cd`.
+	// And a fallback to `boot_pm.bin` if running from project root.
+	bootBinaryPath := "../boot_pm.bin" // Primary attempt for `cd core_engine && go run ...`
 	program, err := os.ReadFile(bootBinaryPath)
 	if err != nil {
 		// Fallback: try reading from current working directory (e.g. if running from project root)
-		bootBinaryPath = "boot.bin"
+		bootBinaryPath = "boot_pm.bin"
 		program, err = os.ReadFile(bootBinaryPath)
 		if err != nil {
 			vm.Close() // Clean up VM resources
-			return nil, fmt.Errorf("failed to read boot.bin from %s or current dir: %v", "../boot.bin", err)
+			return nil, fmt.Errorf("failed to read boot_pm.bin from %s or current dir: %v", "../boot_pm.bin", err)
 		}
 	}
 
 	if uint64(len(program)) > vm.MemorySize {
 		vm.Close()
-		return nil, fmt.Errorf("boot.bin content too large for guest memory (%d vs %d)", len(program), vm.MemorySize)
+		return nil, fmt.Errorf("boot_pm.bin content too large for guest memory (%d vs %d)", len(program), vm.MemorySize)
 	}
 	if len(vm.guestMemory) < len(program) {
 		vm.Close()
-		return nil, fmt.Errorf("guest memory too small (%d bytes) to load boot.bin (%d bytes)", len(vm.guestMemory), len(program))
+		return nil, fmt.Errorf("guest memory too small (%d bytes) to load boot_pm.bin (%d bytes)", len(vm.guestMemory), len(program))
 	}
 	copy(vm.guestMemory[0:], program)
 	if vm.Debug {
-		log.Printf("VirtualMachine: Loaded %d bytes from %s at address 0x0.", len(program), bootBinaryPath)
+		log.Printf("VirtualMachine: Loaded %d bytes from %s (Protected Mode Bootloader) at address 0x0.", len(program), bootBinaryPath)
 	}
 
 	// Construct and Load GDT
