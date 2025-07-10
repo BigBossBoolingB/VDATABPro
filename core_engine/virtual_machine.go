@@ -112,24 +112,41 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		vm.vcpus = append(vm.vcpus, vcpu)
 	}
 
-	// Load "Echo" program:
-	// poll_status: IN AL, 0x64; TEST AL, 0x1; JZ poll_status;
-	// read_char: IN AL, 0x60; OUT 0x3F8, AL; HLT
-	// Machine code: 0xE4, 0x64, 0xA8, 0x01, 0x74, 0xFB, 0xE4, 0x60, 0xE6, 0xF8, 0xF4
-	program := []byte{0xE4, 0x64, 0xA8, 0x01, 0x74, 0xFB, 0xE4, 0x60, 0xE6, 0xF8, 0xF4}
+	// Load program from boot.bin
+	// Assuming boot.bin is in the parent directory relative to where core_engine commands might be run from.
+	// If running 'go run main.go' from project root, path should be "boot.bin".
+	// If building core_engine and running its binary from elsewhere, this path needs care.
+	// For now, assuming a relative path from where the executable might be, or it's in CWD.
+	// A more robust solution would use an absolute path or path relative to executable.
+	// For this step, we'll try `../boot.bin` as if running from within `core_engine` after `cd`.
+	// And a fallback to `boot.bin` if running from project root.
+	bootBinaryPath := "../boot.bin" // Primary attempt for `cd core_engine && go run ...`
+	program, err := os.ReadFile(bootBinaryPath)
+	if err != nil {
+		// Fallback: try reading from current working directory (e.g. if running from project root)
+		bootBinaryPath = "boot.bin"
+		program, err = os.ReadFile(bootBinaryPath)
+		if err != nil {
+			vm.Close() // Clean up VM resources
+			return nil, fmt.Errorf("failed to read boot.bin from %s or current dir: %v", "../boot.bin", err)
+		}
+	}
+
 	if uint64(len(program)) > vm.MemorySize {
-		return nil, fmt.Errorf("echo program too large for guest memory")
+		vm.Close()
+		return nil, fmt.Errorf("boot.bin content too large for guest memory (%d vs %d)", len(program), vm.MemorySize)
 	}
 	if len(vm.guestMemory) < len(program) {
-		return nil, fmt.Errorf("guest memory too small (%d bytes) to load echo program (%d bytes)", len(vm.guestMemory), len(program))
+		vm.Close()
+		return nil, fmt.Errorf("guest memory too small (%d bytes) to load boot.bin (%d bytes)", len(vm.guestMemory), len(program))
 	}
 	copy(vm.guestMemory[0:], program)
 	if vm.Debug {
-		log.Printf("VirtualMachine: Loaded Echo program at address 0x0.")
+		log.Printf("VirtualMachine: Loaded %d bytes from %s at address 0x0.", len(program), bootBinaryPath)
 	}
 
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Echo program loaded.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Bootloader loaded.")
 	}
 	return vm, nil
 }
