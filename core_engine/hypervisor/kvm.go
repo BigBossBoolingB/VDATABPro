@@ -69,8 +69,11 @@ type KvmSregs struct {
 	GDT KvmDtable // Global Descriptor Table
 	IDT KvmDtable // Interrupt Descriptor Table
 	// TODO: Add LDT, TR (Task Register) KvmSegment if needed for more advanced modes
-	// TODO: Add other control registers (CR2, CR3, CR4, EFER etc.)
 	CR0 uint64 // Control Register 0
+	CR2 uint64 // Control Register 2 (Page Fault Linear Address)
+	CR3 uint64 // Control Register 3 (Page Directory Base Register)
+	CR4 uint64 // Control Register 4
+	// TODO: Add other control registers (EFER etc.)
 }
 
 // KvmSegment struct (simplified)

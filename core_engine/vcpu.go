@@ -129,13 +129,23 @@ func (vcpu *VCPU) initRegisters() error {
 	// The GDT is constructed and loaded by VirtualMachine at a known address (e.g., 0x500).
 	// This address needs to be known here or passed. For now, using a constant.
 	// TODO: Make GDT base address configurable or passed from VM.
-	const gdtBaseAddress = 0x500
+	const gdtBaseAddress = 0x500 // This must match the address used in virtual_machine.go
 	const numberOfGDTEntries = 3
 	sregs.GDT.Base = gdtBaseAddress
 	sregs.GDT.Limit = uint16(numberOfGDTEntries*8 - 1) // 3 entries * 8 bytes/entry - 1 = 23
 
 	// LDTR and TR are typically 0 for a simple setup unless tasks/LDTs are used.
-	// KVM usually initializes them appropriately.
+	// KVM usually initializes them appropriately. IDTR also set by KVM or later by OS.
+
+	// Set CR3 (Page Directory Base Register)
+	// The Page Directory is set up by VirtualMachine at a known address (e.g., 0x1000).
+	// TODO: Make Page Directory base address configurable or passed from VM.
+	const pageDirectoryBaseAddress = 0x1000 // This must match the address used in virtual_machine.go
+	sregs.CR3 = pageDirectoryBaseAddress
+
+	// Enable Paging (PG bit, bit 31) in CR0, ensure PE bit (bit 0) is already set.
+	sregs.CR0 |= (1 << 31) // Set PG bit
+	// sregs.CR0 |= 1      // PE bit should have been set earlier or ensured here. It was set above.
 
 	if err := hypervisor.DoKVMSetSregs(vcpu.fd, sregs); err != nil {
 		return fmt.Errorf("KVM_SET_SREGS failed: %v", err)

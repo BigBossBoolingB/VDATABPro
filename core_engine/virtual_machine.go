@@ -175,9 +175,43 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		log.Printf("VirtualMachine: GDT constructed and loaded at 0x%x (%d entries, %d bytes).", gdtBaseAddress, len(gdt), len(gdtBytes))
 	}
 
+	// VMM-Side Paging Setup: Identity map first 4MB
+	pageDirectoryBaseAddress := uint64(0x1000) // Must be 4KB aligned
+	// Page Directory has 1024 entries, each PDE is 4 bytes (uint32). Total size 4096 bytes.
+	numPDEntries := 1024
+	pdSizeBytes := uint64(numPDEntries * 4)
+
+	if pageDirectoryBaseAddress+pdSizeBytes > vm.MemorySize {
+		vm.Close()
+		return nil, fmt.Errorf("page directory too large or base address too high for guest memory")
+	}
+	// Ensure memory for PD is clear (Go slices from mmap are zeroed)
+
+	// Create first PDE for a 4MB page, identity mapping 0x0 - 0x3FFFFF
+	// Physical address of the 4MB page is 0x0.
+	// Flags: Present, Read/Write, User (can be supervisor too), PageSize (4MB)
+	pdeFlags := hypervisor.PTE_PRESENT | hypervisor.PTE_READ_WRITE | hypervisor.PTE_USER_SUPER | hypervisor.PDE_PAGE_SIZE
+	pdeEntry := hypervisor.NewPDE4MB(0x0, pdeFlags) // Identity maps physical 0x0
+
+	// Write PDE to guest memory. Each PDE is uint32.
+	// guestMemory is []byte. Need to write uint32 as 4 bytes.
+	if len(vm.guestMemory) < int(pageDirectoryBaseAddress+4) {
+		vm.Close()
+		return nil, fmt.Errorf("not enough guest memory to write PDE for paging setup")
+	}
+	// Little-endian encoding for uint32
+	vm.guestMemory[pageDirectoryBaseAddress+0] = byte(pdeEntry >> 0)
+	vm.guestMemory[pageDirectoryBaseAddress+1] = byte(pdeEntry >> 8)
+	vm.guestMemory[pageDirectoryBaseAddress+2] = byte(pdeEntry >> 16)
+	vm.guestMemory[pageDirectoryBaseAddress+3] = byte(pdeEntry >> 24)
+
+	if vm.Debug {
+		log.Printf("VirtualMachine: Page Directory set up at 0x%x. First PDE (4MB page) created for 0x0-0x3FFFFF.", pageDirectoryBaseAddress)
+	}
+
 
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Bootloader and GDT loaded.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Bootloader, GDT, and Page Directory loaded.")
 	}
 	return vm, nil
 }
@@ -338,19 +372,37 @@ func (vm *VirtualMachine) HandleIO(vcpuID int, port uint16, data []byte, directi
 
 // HandleMMIO is called by VCPU on KVM_EXIT_MMIO.
 // This is a placeholder for future MMIO device handling.
+// For now, it just logs the access.
 func (vm *VirtualMachine) HandleMMIO(vcpuID int, physAddr uint64, data []byte, isWrite bool) error {
 	if vm.Debug {
-		writeStr := "READ"
+		accessType := "READ"
 		if isWrite {
-			writeStr = "WRITE"
+			accessType = "WRITE"
 		}
-		log.Printf("VM: VCPU %d MMIO Exit: Address=0x%x, DataLen=%d, IsWrite=%s\n",
-			vcpuID, physAddr, len(data), writeStr)
+		// For write, data contains what guest wants to write.
+		// For read, data is buffer for hypervisor to fill, guest receives what's written here.
+		log.Printf("VM: VCPU %d MMIO Exit: Address=0x%X, Data=%v (len %d), IsWrite=%s\n",
+			vcpuID, physAddr, data, len(data), accessType)
 	}
-	// Here, you would typically have an MMIO bus or map to find the device
-	// responsible for this physical address range.
-	// For now, just log and return an error or indicate unhandled.
-	return fmt.Errorf("MMIO to address 0x%x unhandled", physAddr)
+
+	// TODO: Implement MMIO device dispatch logic here.
+	// For now, we'll just log and indicate it's unhandled.
+	// If it's a read, KVM expects data to be populated in the `data` slice.
+	// For an unhandled read, returning an error might be appropriate, or zeroing `data`.
+	// For an unhandled write, just logging might be okay for now.
+	if !isWrite && len(data) > 0 {
+		// For an unhandled MMIO read, KVM expects data to be written to the slice.
+		// Fill with a pattern (e.g., 0xFF) to indicate unhandled read data.
+		for i := range data {
+			data[i] = 0xFF
+		}
+	}
+
+	// Return nil to indicate the MMIO exit was "handled" by logging it,
+	// even if no specific device acted on it. Returning an error might halt the VCPU.
+	// For more robust error handling, specific errors could be defined.
+	// For now, returning an error to indicate it's truly unhandled by any device.
+	return fmt.Errorf("MMIO to address 0x%x (length %d, write: %t) unhandled by VMM", physAddr, len(data), isWrite)
 }
 
 // InjectInterrupt allows injecting an interrupt into a specific VCPU.
