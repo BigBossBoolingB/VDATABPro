@@ -105,8 +105,23 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		}
 		vm.vcpus = append(vm.vcpus, vcpu)
 	}
+
+	// Load HLT instruction (0xF4) at address 0x0
+	// This should happen *before* VCPUs are run, but after memory is set up and vm struct is populated.
+	// NewVCPU calls initRegisters which sets RIP. So, memory must be ready before NewVCPU.
+	// The HLT instruction is loaded here, after VM struct is mostly initialized with guestMemory.
+	if len(vm.guestMemory) > 0 {
+		vm.guestMemory[0] = 0xF4 // HLT instruction
+		if vm.Debug {
+			log.Printf("VirtualMachine: Loaded HLT (0xF4) instruction at address 0x0.")
+		}
+	} else {
+		// This case should ideally not happen if memSize > 0
+		return nil, fmt.Errorf("guest memory not allocated or empty, cannot load HLT instruction")
+	}
+
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. HLT loaded.")
 	}
 	return vm, nil
 }

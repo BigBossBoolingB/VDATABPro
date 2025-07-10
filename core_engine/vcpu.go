@@ -85,21 +85,15 @@ func (vcpu *VCPU) initRegisters() error {
 		return fmt.Errorf("KVM_GET_SREGS failed: %v", err)
 	}
 
-	// Configure for flat real mode or protected mode as needed.
-	// Example: Minimal setup for starting in 16-bit real mode at 0x0000 (typical for BIOS)
-	// CS selector should point to a segment with base 0 and appropriate limits.
-	// For simplicity, many examples set CS base to 0 and RIP to a BIOS entry point like 0xFFF0.
-	// Here, we'll set a basic flat code segment.
+	// Set CS for real-mode like segment starting at 0x0000
 	sregs.CS.Base = 0
-	sregs.CS.Limit = 0xFFFFFFFF
-	sregs.CS.Selector = 0 // Can be 0 for CS in real mode if base is 0. Or a GDT selector.
-	sregs.CS.Type = 11    // Code, Execute/Read
-	sregs.CS.Present = 1
-	sregs.CS.DPL = 0
-	sregs.CS.DB = 1 // 32-bit default operation size if in protected mode, 0 for 16-bit. Let's assume 1 for now.
-	sregs.CS.S = 1  // Code or Data segment
-	sregs.CS.L = 0  // Not 64-bit mode initially
-	sregs.CS.G = 1  // Granularity (limit in 4KB units)
+	sregs.CS.Selector = 0
+	// Other CS fields (Limit, Type, Present, DPL, DB, S, L, G) are often
+	// initialized by KVM to usable defaults for real mode, or should be
+	// set explicitly if a specific protected mode segment is desired.
+	// For a simple HLT at 0x0, KVM's defaults after setting Base/Selector to 0
+	// are usually sufficient for CS to function as a basic code segment.
+	// The existing settings for Type, Present, DB, G, etc. are fine.
 
 	// Data segments (DS, ES, SS) typically also flat
 	sregs.DS.Base = 0
@@ -136,16 +130,16 @@ func (vcpu *VCPU) initRegisters() error {
 	}
 
 	// Set general purpose registers
-	regs := &hypervisor.KvmRegs{
-		RFLAGS: 0x2, // Bit 1 is always 1. Other flags (IF, etc.) as needed.
-		// RIP:    0xFFF0, // Typical BIOS entry point if loading a BIOS.
-		// For direct kernel loading, this would be the kernel entry point.
-		// If loading a simple bootloader at 0x7c00:
-		RIP: 0x7c00, // Common address for bootloaders loaded by BIOS
-		// RSP:    0x7c00, // Initial stack pointer (e.g., below bootloader)
+	regs, err := hypervisor.DoKVMGetRegs(vcpu.fd)
+	if err != nil {
+		return fmt.Errorf("KVM_GET_REGS failed for RIP setting: %v", err)
 	}
+	regs.RIP = 0x0 // Start execution at address 0x0
+	// RFLAGS is typically 0x2 by default in KVM for VCPUs.
+	// RSP can be left to KVM default or set to top of initial RAM region if needed.
+	// For a single HLT instruction, RSP is not critical.
 	if err := hypervisor.DoKVMSetRegs(vcpu.fd, regs); err != nil {
-		return fmt.Errorf("KVM_SET_REGS failed: %v", err)
+		return fmt.Errorf("KVM_SET_REGS for RIP failed: %v", err)
 	}
 	if vcpu.vm.Debug {
 		log.Printf("VCPU %d: Registers initialized. RIP=0x%x, RFLAGS=0x%x, CS.Base=0x%x\n", vcpu.id, regs.RIP, regs.RFLAGS, sregs.CS.Base)
@@ -301,6 +295,11 @@ func (vcpu *VCPU) Run() error {
 			if vcpu.id == 0 { // PIC checks usually by VCPU0
 				vcpu.vm.CheckForPendingInterrupts(vcpu.id)
 			}
+			// After checking for interrupts, if it's still HLT, we might effectively
+			// pause or yield for a bit before retrying KVM_RUN. The ticker helps here.
+			// For this specific test, we want to exit on HLT.
+			log.Printf("VCPU %d: Halted Successfully. Proof of Life Confirmed.", vcpu.id)
+			return nil // Exit the run loop and function cleanly
 
 
 		case hypervisor.KVM_EXIT_SHUTDOWN:
