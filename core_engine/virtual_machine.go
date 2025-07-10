@@ -106,22 +106,23 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		vm.vcpus = append(vm.vcpus, vcpu)
 	}
 
-	// Load HLT instruction (0xF4) at address 0x0
-	// This should happen *before* VCPUs are run, but after memory is set up and vm struct is populated.
-	// NewVCPU calls initRegisters which sets RIP. So, memory must be ready before NewVCPU.
-	// The HLT instruction is loaded here, after VM struct is mostly initialized with guestMemory.
-	if len(vm.guestMemory) > 0 {
-		vm.guestMemory[0] = 0xF4 // HLT instruction
-		if vm.Debug {
-			log.Printf("VirtualMachine: Loaded HLT (0xF4) instruction at address 0x0.")
-		}
-	} else {
-		// This case should ideally not happen if memSize > 0
-		return nil, fmt.Errorf("guest memory not allocated or empty, cannot load HLT instruction")
+	// Load program: MOV AL, 'W'; OUT 0x3F8, AL; HLT
+	// Machine code: 0xB0, 0x57, 0xE6, 0xF8, 0xF4
+	program := []byte{0xB0, 0x57, 0xE6, 0xF8, 0xF4}
+	if uint64(len(program)) > vm.MemorySize {
+		return nil, fmt.Errorf("program too large for guest memory")
+	}
+	if len(vm.guestMemory) < len(program) {
+		// This should not happen if memSize is reasonably set (e.g., >= 64KB)
+		return nil, fmt.Errorf("guest memory too small (%d bytes) to load program (%d bytes)", len(vm.guestMemory), len(program))
+	}
+	copy(vm.guestMemory[0:], program)
+	if vm.Debug {
+		log.Printf("VirtualMachine: Loaded program (MOV AL, 'W'; OUT 0x3F8; HLT) at address 0x0.")
 	}
 
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. HLT loaded.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Program loaded.")
 	}
 	return vm, nil
 }
