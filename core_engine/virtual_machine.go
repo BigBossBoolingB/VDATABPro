@@ -9,6 +9,7 @@ import (
 
 	"core_engine/devices"
 	"core_engine/hypervisor"
+	"core_engine/network" // Added for TapDevice
 )
 
 // VirtualMachine represents a KVM-based virtual machine.
@@ -22,7 +23,9 @@ type VirtualMachine struct {
 	pitDevice     *devices.PITDevice
 	serialDevice  *devices.SerialPortDevice
 	rtcDevice     *devices.RTCDevice
-	keyboardDevice *devices.KeyboardDevice // Added KeyboardDevice field
+	keyboardDevice *devices.KeyboardDevice
+	ne2000Device  *devices.NE2000Device // Added NE2000Device field
+	tapDevice     *network.TapDevice    // Added TapDevice field for cleanup
 	MemorySize    uint64
 	NumVCPUs      int
 	stopChan      chan struct{}
@@ -73,16 +76,37 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 	pit := devices.NewPITDevice(pic)
 	serial := devices.NewSerialPortDevice(os.Stdout, pic) // Serial output to stdout
 	rtc := devices.NewRTCDevice(pic)
-	keyboard := devices.NewKeyboardDevice() // Instantiate KeyboardDevice
+	keyboard := devices.NewKeyboardDevice()
+
+	// Initialize TAP device for NE2000
+	tap, err := network.NewTapDevice("tap0") // Example name
+	if err != nil {
+		// Proper cleanup of already allocated resources if TAP fails
+		syscall.Munmap(guestMem)
+		syscall.Close(vmFD)
+		syscall.Close(kvmFD)
+		// Note: pic, pit, serial, rtc, keyboard are not OS resources needing explicit close here
+		return nil, fmt.Errorf("failed to create TAP device: %w", err)
+	}
+	// It's good practice to configure the TAP interface (ip link set up, ip addr add)
+	// This might be done outside or via a helper. For now, we assume it's configured.
+	// if err := network.ConfigureTapInterface(tap.Name, "192.168.100.1/24"); err != nil {
+	//     log.Printf("Warning: Failed to configure TAP interface %s: %v. Manual configuration might be needed.", tap.Name, err)
+	// }
+
+
+	ne2000 := devices.NewNE2000Device(tap, pic, devices.NE2000_DEFAULT_MAC)
+
 
 	// Register devices with the I/O bus
-	ioBus.RegisterDevice(devices.PIC_MASTER_CMD_PORT, devices.PIC_SLAVE_DATA_PORT, pic) // Covers all PIC ports
-	ioBus.RegisterDevice(devices.PIT_PORT_COUNTER0, devices.PIT_PORT_COMMAND, pit)    // Covers PIT counter and command ports
-	ioBus.RegisterDevice(devices.PIT_PORT_STATUS, devices.PIT_PORT_STATUS, pit)        // Port 0x61 for PIT/System
+	ioBus.RegisterDevice(devices.PIC_MASTER_CMD_PORT, devices.PIC_SLAVE_DATA_PORT, pic)
+	ioBus.RegisterDevice(devices.PIT_PORT_COUNTER0, devices.PIT_PORT_COMMAND, pit)
+	ioBus.RegisterDevice(devices.PIT_PORT_STATUS, devices.PIT_PORT_STATUS, pit)
 	ioBus.RegisterDevice(devices.COM1_PORT_BASE, devices.COM1_PORT_END, serial)
 	ioBus.RegisterDevice(devices.RTC_PORT_INDEX, devices.RTC_PORT_DATA, rtc)
-	ioBus.RegisterDevice(devices.KEYBOARD_PORT_DATA, devices.KEYBOARD_PORT_DATA, keyboard)     // Register for 0x60
-	ioBus.RegisterDevice(devices.KEYBOARD_PORT_STATUS, devices.KEYBOARD_PORT_STATUS, keyboard) // Register for 0x64
+	ioBus.RegisterDevice(devices.KEYBOARD_PORT_DATA, devices.KEYBOARD_PORT_DATA, keyboard)
+	ioBus.RegisterDevice(devices.KEYBOARD_PORT_STATUS, devices.KEYBOARD_PORT_STATUS, keyboard)
+	ioBus.RegisterDevice(devices.NE2000_BASE_PORT, devices.NE2000_BASE_PORT+0x1F, ne2000) // NE2000 uses 32 ports (0x00-0x1F relative)
 
 
 	vm := &VirtualMachine{
@@ -94,7 +118,9 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		pitDevice:     pit,
 		serialDevice:  serial,
 		rtcDevice:     rtc,
-		keyboardDevice: keyboard, // Store keyboard device instance
+		keyboardDevice: keyboard,
+		ne2000Device:  ne2000, // Store NE2000 instance
+		tapDevice:     tap,    // Store TapDevice for cleanup
 		MemorySize:    memSize,
 		NumVCPUs:      numVCPUs,
 		stopChan:      make(chan struct{}),
@@ -302,6 +328,12 @@ func (vm *VirtualMachine) Close() {
 	if vm.guestMemory != nil {
 		syscall.Munmap(vm.guestMemory)
 		vm.guestMemory = nil
+	}
+	if vm.tapDevice != nil { // Close TAP device
+		if err := vm.tapDevice.Close(); err != nil {
+			log.Printf("VirtualMachine: Error closing TAP device %s: %v", vm.tapDevice.Name, err)
+		}
+		vm.tapDevice = nil
 	}
 	if vm.vmFD != 0 {
 		syscall.Close(vm.vmFD)
