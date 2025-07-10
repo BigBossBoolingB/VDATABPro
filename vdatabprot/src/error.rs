@@ -31,8 +31,11 @@ pub enum Error {
     /// Wrapper for standard I/O errors.
     /// This allows `std::io::Error` to be converted into the custom `Error` type.
     IoError(String),
+
+    /// Error indicating that a data integrity check failed during reconstitution.
+    /// This typically means the data hash does not match the expected fingerprint.
+    IntegrityCheckFailed,
     // Potentially more error variants in the future, e.g.,
-    // - IntegrityCheckFailed(String)
     // - InvalidVectorFormat(String)
     // - ConfigurationError(String)
 }
@@ -46,6 +49,7 @@ impl fmt::Display for Error {
             Error::DecompressionError(msg) => write!(f, "Decompression Error: {}", msg),
             Error::ReconstitutionError(msg) => write!(f, "Reconstitution Error: {}", msg),
             Error::IoError(msg) => write!(f, "I/O Error: {}", msg),
+            Error::IntegrityCheckFailed => write!(f, "Data integrity check failed during reconstitution"),
         }
     }
 }
