@@ -180,3 +180,9 @@ const (
 	PIT_PORT_COMMAND  uint16 = 0x43
 	PIT_PORT_STATUS   uint16 = 0x61 // Used for PC speaker, Gate A20, NMI status etc. (Port B of 8255 PPI on original PC)
 )
+
+// Keyboard Controller Port Constants (8042 style)
+const (
+	KEYBOARD_PORT_DATA   uint16 = 0x60 // Data Register (read/write)
+	KEYBOARD_PORT_STATUS uint16 = 0x64 // Status Register (read) / Command Register (write)
+)

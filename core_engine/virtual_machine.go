@@ -22,6 +22,7 @@ type VirtualMachine struct {
 	pitDevice     *devices.PITDevice
 	serialDevice  *devices.SerialPortDevice
 	rtcDevice     *devices.RTCDevice
+	keyboardDevice *devices.KeyboardDevice // Added KeyboardDevice field
 	MemorySize    uint64
 	NumVCPUs      int
 	stopChan      chan struct{}
@@ -72,6 +73,7 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 	pit := devices.NewPITDevice(pic)
 	serial := devices.NewSerialPortDevice(os.Stdout, pic) // Serial output to stdout
 	rtc := devices.NewRTCDevice(pic)
+	keyboard := devices.NewKeyboardDevice() // Instantiate KeyboardDevice
 
 	// Register devices with the I/O bus
 	ioBus.RegisterDevice(devices.PIC_MASTER_CMD_PORT, devices.PIC_SLAVE_DATA_PORT, pic) // Covers all PIC ports
@@ -79,6 +81,9 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 	ioBus.RegisterDevice(devices.PIT_PORT_STATUS, devices.PIT_PORT_STATUS, pit)        // Port 0x61 for PIT/System
 	ioBus.RegisterDevice(devices.COM1_PORT_BASE, devices.COM1_PORT_END, serial)
 	ioBus.RegisterDevice(devices.RTC_PORT_INDEX, devices.RTC_PORT_DATA, rtc)
+	ioBus.RegisterDevice(devices.KEYBOARD_PORT_DATA, devices.KEYBOARD_PORT_DATA, keyboard)     // Register for 0x60
+	ioBus.RegisterDevice(devices.KEYBOARD_PORT_STATUS, devices.KEYBOARD_PORT_STATUS, keyboard) // Register for 0x64
+
 
 	vm := &VirtualMachine{
 		vmFD:          vmFD,
@@ -89,6 +94,7 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		pitDevice:     pit,
 		serialDevice:  serial,
 		rtcDevice:     rtc,
+		keyboardDevice: keyboard, // Store keyboard device instance
 		MemorySize:    memSize,
 		NumVCPUs:      numVCPUs,
 		stopChan:      make(chan struct{}),
@@ -106,23 +112,24 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		vm.vcpus = append(vm.vcpus, vcpu)
 	}
 
-	// Load program: MOV AL, 'W'; OUT 0x3F8, AL; HLT
-	// Machine code: 0xB0, 0x57, 0xE6, 0xF8, 0xF4
-	program := []byte{0xB0, 0x57, 0xE6, 0xF8, 0xF4}
+	// Load "Echo" program:
+	// poll_status: IN AL, 0x64; TEST AL, 0x1; JZ poll_status;
+	// read_char: IN AL, 0x60; OUT 0x3F8, AL; HLT
+	// Machine code: 0xE4, 0x64, 0xA8, 0x01, 0x74, 0xFB, 0xE4, 0x60, 0xE6, 0xF8, 0xF4
+	program := []byte{0xE4, 0x64, 0xA8, 0x01, 0x74, 0xFB, 0xE4, 0x60, 0xE6, 0xF8, 0xF4}
 	if uint64(len(program)) > vm.MemorySize {
-		return nil, fmt.Errorf("program too large for guest memory")
+		return nil, fmt.Errorf("echo program too large for guest memory")
 	}
 	if len(vm.guestMemory) < len(program) {
-		// This should not happen if memSize is reasonably set (e.g., >= 64KB)
-		return nil, fmt.Errorf("guest memory too small (%d bytes) to load program (%d bytes)", len(vm.guestMemory), len(program))
+		return nil, fmt.Errorf("guest memory too small (%d bytes) to load echo program (%d bytes)", len(vm.guestMemory), len(program))
 	}
 	copy(vm.guestMemory[0:], program)
 	if vm.Debug {
-		log.Printf("VirtualMachine: Loaded program (MOV AL, 'W'; OUT 0x3F8; HLT) at address 0x0.")
+		log.Printf("VirtualMachine: Loaded Echo program at address 0x0.")
 	}
 
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Program loaded.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Echo program loaded.")
 	}
 	return vm, nil
 }
