@@ -124,6 +124,17 @@ func (vcpu *VCPU) initRegisters() error {
 	                // A more robust real mode setup would be CR0 = 0x10 or similar.
 					// For simplicity, we rely on KVM's defaults or what a loaded BIOS would set.
 
+	// Set GDTR
+	// The GDT is constructed and loaded by VirtualMachine at a known address (e.g., 0x500).
+	// This address needs to be known here or passed. For now, using a constant.
+	// TODO: Make GDT base address configurable or passed from VM.
+	const gdtBaseAddress = 0x500
+	const numberOfGDTEntries = 3
+	sregs.GDT.Base = gdtBaseAddress
+	sregs.GDT.Limit = uint16(numberOfGDTEntries*8 - 1) // 3 entries * 8 bytes/entry - 1 = 23
+
+	// LDTR and TR are typically 0 for a simple setup unless tasks/LDTs are used.
+	// KVM usually initializes them appropriately.
 
 	if err := hypervisor.DoKVMSetSregs(vcpu.fd, sregs); err != nil {
 		return fmt.Errorf("KVM_SET_SREGS failed: %v", err)

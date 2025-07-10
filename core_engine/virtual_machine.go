@@ -145,8 +145,39 @@ func NewVirtualMachine(memSize uint64, numVCPUs int, enableDebug bool) (*Virtual
 		log.Printf("VirtualMachine: Loaded %d bytes from %s at address 0x0.", len(program), bootBinaryPath)
 	}
 
+	// Construct and Load GDT
+	gdtBaseAddress := uint64(0x500) // Arbitrary high address for GDT
+	gdt := make([]hypervisor.GDTEntry, 3)
+
+	// Entry 0: Null Descriptor
+	gdt[0] = hypervisor.NewGDTEntry(0, 0, 0, 0)
+	// Entry 1: Code Segment (Base=0, Limit=4GB, Access=0x9A (Present, DPL0, Executable, Read/Write), Flags=0xCF (Granularity=4KB, 32-bit))
+	// Limit for 4GB with G=1 is 0xFFFFF (20 bits)
+	gdt[1] = hypervisor.NewGDTEntry(0, 0xFFFFF, 0x9A, 0xCF)
+	// Entry 2: Data Segment (Base=0, Limit=4GB, Access=0x92 (Present, DPL0, Read/Write), Flags=0xCF (Granularity=4KB, 32-bit))
+	gdt[2] = hypervisor.NewGDTEntry(0, 0xFFFFF, 0x92, 0xCF)
+
+	// Convert GDT entries to byte slice
+	gdtBytes := make([]byte, len(gdt)*8) // Each GDT entry is 8 bytes
+	for i, entry := range gdt {
+		entryBytes := (*[8]byte)(unsafe.Pointer(&entry))
+		copy(gdtBytes[i*8:], entryBytes[:])
+	}
+
+	// Ensure GDT fits in guest memory
+	if gdtBaseAddress+uint64(len(gdtBytes)) > vm.MemorySize {
+		vm.Close()
+		return nil, fmt.Errorf("GDT too large or base address too high for guest memory")
+	}
+	// Copy GDT to guest memory
+	copy(vm.guestMemory[gdtBaseAddress:], gdtBytes)
+	if vm.Debug {
+		log.Printf("VirtualMachine: GDT constructed and loaded at 0x%x (%d entries, %d bytes).", gdtBaseAddress, len(gdt), len(gdtBytes))
+	}
+
+
 	if enableDebug {
-		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Bootloader loaded.")
+		log.Println("VirtualMachine: KVM VM and VCPU(s) created successfully. Bootloader and GDT loaded.")
 	}
 	return vm, nil
 }

@@ -56,10 +56,20 @@ type KvmRegs struct {
 	RIP uint64 // Assuming RIP for instruction pointer
 }
 
+// KvmDtable matches the layout of struct kvm_dtable used for GDT/IDT.
+type KvmDtable struct {
+	Base    uint64
+	Limit   uint16
+	Padding [3]uint16 // Reserved, must be zero.
+}
+
 // KvmSregs struct (simplified - subset of segment registers)
 type KvmSregs struct {
 	CS, DS, ES, FS, GS, SS KvmSegment // Code, Data, Extra Segments
-	// ... add other segment registers and control registers like CR0, CR2, CR3, CR4, etc.
+	GDT KvmDtable // Global Descriptor Table
+	IDT KvmDtable // Interrupt Descriptor Table
+	// TODO: Add LDT, TR (Task Register) KvmSegment if needed for more advanced modes
+	// TODO: Add other control registers (CR2, CR3, CR4, EFER etc.)
 	CR0 uint64 // Control Register 0
 }
 
