@@ -95,7 +95,6 @@ func (ne *NE2000Device) StopRxLoop() {
 	ne.lock.Lock()
 	defer ne.lock.Unlock()
 	if !ne.rxLoopRunning {
-		fmt.Println("NE2000 Rx loop already stopped or not started.")
 		return
 	}
 	fmt.Println("NE2000: Attempting to stop Rx loop...")
@@ -111,27 +110,33 @@ func (ne *NE2000Device) StopRxLoop() {
 
 func (ne *NE2000Device) receivePacketsLoop() {
 	defer close(ne.rxGoroutineDone)
-	fmt.Println("NE2000: receivePacketsLoop goroutine running.")
+	// fmt.Println("NE2000: receivePacketsLoop goroutine running.")
 	for {
 		select {
 		case <-ne.stopRxLoop:
 			fmt.Println("NE2000: Rx loop received stop signal. Terminating.")
 			return
 		default:
+			// fmt.Println("NE2000 RxLoop: Default case entered.")
 			ne.lock.Lock()
-			stopped := (ne.Cr & CR_STOP) != 0 || (ne.Cr & CR_START) == 0
+			isCurrentlyStopped := (ne.Cr & CR_STOP) != 0 || (ne.Cr & CR_START) == 0
 			ne.lock.Unlock()
-			if stopped {
-				time.Sleep(100 * time.Millisecond); continue
+
+			if isCurrentlyStopped {
+				time.Sleep(100 * time.Millisecond)
+				continue
 			}
+
 			packet, err := ne.hostNetInterface.ReadPacket()
 			if err != nil {
 				time.Sleep(10 * time.Millisecond); continue
 			}
+
 			if packet != nil && len(packet) > 0 {
+				fmt.Printf("NE2000 Rx Loop: Packet received from TAP device, len: %d. CR: 0x%02x. Calling inject.\n", len(packet), ne.Cr)
 				ne.injectReceivedPacket(packet)
 			} else {
-				time.Sleep(1 * time.Millisecond)
+				time.Sleep(5 * time.Millisecond)
 			}
 		}
 	}
@@ -140,6 +145,9 @@ func (ne *NE2000Device) receivePacketsLoop() {
 func (ne *NE2000Device) injectReceivedPacket(packetBytes []byte) {
 	ne.lock.Lock()
 	defer ne.lock.Unlock()
+
+	fmt.Printf("injectReceivedPacket: ENTER. len(packetBytes)=%d. CURR=0x%02x, BNRY=0x%02x, PSTART=0x%02x, PSTOP=0x%02x, ISR=0x%02x, IMR=0x%02x, CR=0x%02x\n",
+		len(packetBytes), ne.Curr, ne.Bnry, ne.Pstart, ne.Pstop, ne.Isr, ne.Imr, ne.Cr)
 
 	headerSize := uint16(4)
 	actualPacketDataLength := uint16(len(packetBytes))
@@ -210,7 +218,7 @@ func (ne *NE2000Device) HandleIO(port uint16, direction uint8, size uint8, data 
 		if offset != NE2000_ASIC_OFFSET_DATA && size == 2 {
 			return fmt.Errorf("NE2000Device: Word access to register port 0x%x not supported (offset 0x%x)", port, offset)
 		}
-		return fmt.Errorf("NE2000Device: I/O size %d not supported for port 0x%x (offset 0x%x). Expected 1-byte.", size, port, offset)
+		return fmt.Errorf("NE2000Device: I/O size %d not supported for port 0x%x (offset 0x%02x). Expected 1-byte.", size, port, offset)
 	}
 
 	if offset == NE2000_ASIC_OFFSET_DATA {
@@ -348,18 +356,20 @@ func (ne *NE2000Device) processCRCommand(newCRValue byte) {
 			if transmitByteCount < 60 {
 				fmt.Printf("NE2000: Transmit Error: Packet too small (%d bytes). Min is 60.\n", transmitByteCount)
 				ne.Isr |= ISR_TXE; if (ne.Imr & ISR_TXE) != 0 { ne.irqRaiser.RaiseIRQ(NE2000_IRQ) }; ne.Cr &^= CR_TXP
+				return
 			} else if transmitByteCount > 1514 {
 				fmt.Printf("NE2000: Transmit Error: Packet too large (%d bytes). Max is 1514.\n", transmitByteCount)
 				ne.Isr |= ISR_TXE; if (ne.Imr & ISR_TXE) != 0 { ne.irqRaiser.RaiseIRQ(NE2000_IRQ) }; ne.Cr &^= CR_TXP
+				return
 			} else {
-				ramOffset := uint16(transmitPageStart) * 256 // ramOffset is uint16
-				packetEndOffset := uint32(ramOffset) + uint32(transmitByteCount) // Calculate end offset using uint32
+				ramOffset := uint16(transmitPageStart) * 256
+				packetEndOffset := uint32(ramOffset) + uint32(transmitByteCount)
 				if packetEndOffset > uint32(len(ne.RAM)) {
 					fmt.Printf("NE2000: Transmit Error: Packet data (offset 0x%04x, count %d, end 0x%04x) exceeds RAM bounds (0x%04x).\n", ramOffset, transmitByteCount, packetEndOffset, len(ne.RAM))
 					ne.Isr |= ISR_TXE; if (ne.Imr & ISR_TXE) != 0 { ne.irqRaiser.RaiseIRQ(NE2000_IRQ) }; ne.Cr &^= CR_TXP
+					return // THIS RETURN IS CRITICAL FOR THE FAILING TEST
 				} else {
 					packetData := make([]byte, transmitByteCount)
-					// Use uint32 for ramOffset in slice when comparing with packetEndOffset or len(ne.RAM)
 					copy(packetData, ne.RAM[uint32(ramOffset):packetEndOffset])
 					err := ne.hostNetInterface.WritePacket(packetData)
 					if err != nil {
