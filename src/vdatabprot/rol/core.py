@@ -2,14 +2,10 @@
 Core functionality for the Reconstitution & Operation Layer (ROL) of the VDataBProt protocol.
 """
 
-from typing import Dict, Any
 import uuid
 
+from vdatabprot.storage import get_vector, store_vector
 from vdatabprot.tvc import create_data_state_vector, reconstitute_from_vector
-from vdatabprot.tvc.structs import DataStateVector
-
-# In-memory storage for DataStateVectors
-_vector_storage: Dict[str, DataStateVector] = {}
 
 
 def write(data: bytes) -> str:
@@ -24,7 +20,7 @@ def write(data: bytes) -> str:
     """
     vector = create_data_state_vector(data)
     vector_id = str(uuid.uuid4())
-    _vector_storage[vector_id] = vector
+    store_vector(vector_id, vector)
     return vector_id
 
 
@@ -38,5 +34,7 @@ def read(vector_id: str) -> bytes:
     Returns:
         The original data.
     """
-    vector = _vector_storage[vector_id]
+    vector = get_vector(vector_id)
+    if vector is None:
+        raise ValueError(f"Vector with id {vector_id} not found.")
     return reconstitute_from_vector(vector)

@@ -1,9 +1,17 @@
 import unittest
 import os
+import glob
 
 from vdatabprot.rol import write, read
 
 class TestROL(unittest.TestCase):
+    def tearDown(self):
+        """
+        Clean up the database file after each test.
+        """
+        for f in glob.glob("vdatabprot.db*"):
+            os.remove(f)
+
     def test_write_read(self):
         """
         Tests that data can be written and read back correctly.
