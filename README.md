@@ -65,7 +65,28 @@ CritterCraftUniverse / EchoSphere: All user-generated content, game states, and 
 DashAIBrowser: Will leverage VDataBProt for a revolutionary caching system, storing vector blueprints of web assets for a faster, lighter Browse experience.
 
 📊 Current Status
-Conceptual Stage. VDataBProt is currently a fully-architected conceptual blueprint. Implementation and prototyping are the next steps in the development roadmap.
+**Phase 1: Complete.** The initial implementation of the four-layer VDataBProt protocol is complete and has been tested.
+
+**Phase 2: Integration.** A successful proof-of-concept integration with a sample CritterCraft application has been completed, validating the protocol's real-world applicability.
+
+### Running the Proof-of-Concept
+
+To run the CritterCraft PoC:
+
+1.  Install the VDataBProt package in editable mode:
+    ```bash
+    pip install -e .
+    ```
+2.  Navigate to the PoC directory:
+    ```bash
+    cd crittercraft-poc
+    ```
+3.  Run the main script:
+    ```bash
+    python3 main.py
+    ```
+
+This will demonstrate the full write/read cycle of a sample `Pet` object using the VDataBProt backend.
 
 ⚖️ License
 The use, study, and future implementation of this protocol are governed by The Architect's Mandate License (AML) v1.0. This is a restrictive license designed to protect the architectural integrity and strategic vision of The Work and The Ecosystem. Commercial use is strictly prohibited without an explicit, written license from The Architect.
