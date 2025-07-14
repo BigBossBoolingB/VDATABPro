@@ -30,3 +30,16 @@ def create_data_state_vector(data: bytes) -> DataStateVector:
         statistical_fingerprint=statistical_fingerprint,
         structural_metadata=structural_metadata,
     )
+
+
+def reconstitute_from_vector(vector: DataStateVector) -> bytes:
+    """
+    Reconstitutes the original data from a DataStateVector.
+
+    Args:
+        vector: The DataStateVector to reconstitute.
+
+    Returns:
+        The original, uncompressed data.
+    """
+    return zlib.decompress(vector.compressed_payload)
