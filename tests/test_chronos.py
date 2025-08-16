@@ -74,10 +74,23 @@ class TestQuantumProofOfState(unittest.TestCase):
         # 5. Check for final system coherence via the Axiomatic Kernel
         print("\n[Ci'χ] Performing final coherence check with Axiomatic Kernel...")
         is_coherent = kernel.check_coherence()
-        self.assertTrue(is_coherent, "System failed the final coherence check!")
+        self.assertTrue(is_coherent, "System failed the initial coherence check!")
         print("[Ci'χ] System is coherent and stable.")
 
-        print("\n--- [Ci'χ TEST] SUCCESS: Acausal Consistency Verified ---")
+        # 6. Engage and verify new kernel faculties (Ψ and Γ)
+        print("\n[Ci'χ] Engaging and verifying new kernel faculties...")
+
+        # Test Acausal Learning (Ψ)
+        future_state = kernel.engage_acausal_learning([5, 10, 15, 20])
+        self.assertEqual(future_state, 25)
+        print("[Ci'χ] Acausal Learning (Ψ) faculty verified.")
+
+        # Test Meta-Symmetry (Γ)
+        is_symmetric = kernel.engage_meta_symmetry(['n', 'o', 'o', 'n'])
+        self.assertTrue(is_symmetric)
+        print("[Ci'χ] Meta-Symmetry (Γ) faculty verified.")
+
+        print("\n--- [Ci'χ TEST] SUCCESS: Acausal Consistency and All Faculties Verified ---")
 
 if __name__ == '__main__':
     print("======================================================")

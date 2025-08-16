@@ -5,6 +5,10 @@ These parameters govern the system's hyper-computational and reasoning faculties
 """
 
 from dataclasses import dataclass
+from typing import List, Any, Union
+
+from .acausal_learning import AcausalLearningEngine
+from .meta_symmetry import MetaSymmetryEngine
 
 @dataclass(frozen=True)
 class AxiomaticConstants:
@@ -32,18 +36,23 @@ class AxiomaticConstants:
 
 class AxiomaticKernel:
     """
-    The Vd'χ kernel. It integrates the axiomatic constants to drive the system's
-    core functions of acausal reasoning and hyper-computation.
+    The Vd'χ kernel. It integrates the axiomatic constants and faculties to drive
+    the system's core functions of acausal reasoning and hyper-computation.
     """
     def __init__(self, constants: AxiomaticConstants = AxiomaticConstants()):
         self.constants = constants
         self._is_coherent = False
-        print("AxiomaticKernel: Initialized. Awaiting coherence check.")
+        print("AxiomaticKernel: Initializing...")
+
+        # Initialize and integrate the core reasoning faculties
+        self.acausal_engine = AcausalLearningEngine()
+        self.symmetry_engine = MetaSymmetryEngine()
+
+        print("AxiomaticKernel: All faculties integrated. Awaiting coherence check.")
 
     def check_coherence(self) -> bool:
         """
         Performs a system-wide coherence check against the axiomatic constants.
-        In a real system, this would be an incredibly complex process.
         """
         print("AxiomaticKernel: Performing coherence check...")
         # Placeholder for a complex verification process
@@ -58,6 +67,20 @@ class AxiomaticKernel:
 
         return self._is_coherent
 
+    def engage_acausal_learning(self, sequence: List[Union[int, float]]) -> Union[int, float, None]:
+        """Engages the Acausal Learning (Ψ) faculty."""
+        if not self._is_coherent:
+            print("Kernel is not coherent. Cannot engage Ψ faculty.")
+            return None
+        return self.acausal_engine.precompute_future_state(sequence)
+
+    def engage_meta_symmetry(self, sequence: List[Any]) -> bool:
+        """Engages the Meta-Symmetry (Γ) faculty."""
+        if not self._is_coherent:
+            print("Kernel is not coherent. Cannot engage Γ faculty.")
+            return False
+        return self.symmetry_engine.find_palindromic_symmetry(sequence)
+
     def get_status(self) -> dict:
         """Returns the current status of the kernel."""
         return {
@@ -66,19 +89,28 @@ class AxiomaticKernel:
         }
 
 if __name__ == '__main__':
-    print("--- Simulating Axiomatic Kernel Initialization ---")
+    print("--- Simulating Axiomatic Kernel Initialization & Operation ---")
     kernel = AxiomaticKernel()
-    status_before_check = kernel.get_status()
 
-    print("\nInitial Status:")
-    import json
-    print(json.dumps(status_before_check, indent=2))
-
+    # Check coherence first
     kernel.check_coherence()
 
-    print("\nStatus After Coherence Check:")
-    status_after_check = kernel.get_status()
-    print(json.dumps(status_after_check, indent=2))
+    if kernel.get_status()["coherent"]:
+        print("\n--- Engaging New Faculties ---")
+
+        # Engage Acausal Learning
+        linear_seq = [3, 6, 9, 12]
+        print(f"\nEngaging Ψ with sequence: {linear_seq}")
+        future = kernel.engage_acausal_learning(linear_seq)
+        assert future == 15
+
+        # Engage Meta-Symmetry
+        symmetric_seq = ["x", 1, "y", 1, "x"]
+        print(f"\nEngaging Γ with sequence: {symmetric_seq}")
+        is_symmetric = kernel.engage_meta_symmetry(symmetric_seq)
+        assert is_symmetric is True
+
+        print("\n--- Faculty Engagement Successful ---")
 
     print("\n--------------------------------------------")
     print("AxiomaticKernel (Vd'χ) standby.")
