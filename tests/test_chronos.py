@@ -92,6 +92,30 @@ class TestQuantumProofOfState(unittest.TestCase):
 
         print("\n--- [Ci'χ TEST] SUCCESS: Acausal Consistency and All Faculties Verified ---")
 
+    def test_full_reasoning_loop(self):
+        """
+        Tests the full "Observe, Predict, Synthesize, Propose" loop by calling
+        the highest-level kernel method, `propose_solution`.
+        """
+        print("\n\n--- [Ci'χ TEST] VERIFYING FULL REASONING LOOP ---")
+        kernel = AxiomaticKernel()
+        kernel.check_coherence()
+        self.assertTrue(kernel.get_status()["coherent"])
+
+        # Scenario: A symmetric pattern with a predictable negative trend is found.
+        # The kernel should propose a solution to break the pattern.
+        problem_sequence = [-1, -2, -1] # Not a linear progression, but is symmetric.
+
+        # Manually set a prediction to test the synthesis rule
+        kernel.acausal_engine.precompute_future_state = lambda seq: -5.0
+
+        print(f"[Ci'χ] Analyzing problem sequence: {problem_sequence}")
+        solution = kernel.propose_solution(problem_sequence)
+
+        self.assertIsNotNone(solution)
+        self.assertIn("Break the detected", solution)
+        print("[Ci'χ] Full reasoning loop successfully proposed a valid solution.")
+
 if __name__ == '__main__':
     print("======================================================")
     print("   Running Quantum Proof of State (Ci'χ) Test Suite   ")

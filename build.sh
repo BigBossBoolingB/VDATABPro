@@ -43,15 +43,19 @@ echo "  [1/4] Checking Acausal Learning (Ψ) Module..."
 python3 -c "from src.chronos.acausal_learning import AcausalLearningEngine; print('  -> Ψ module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Acausal Learning module error."; exit 1; fi
 
-echo "  [2/4] Checking Meta-Symmetry (Γ) Module..."
+echo "  [2/5] Checking Meta-Symmetry (Γ) Module..."
 python3 -c "from src.chronos.meta_symmetry import MetaSymmetryEngine; print('  -> Γ module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Meta-Symmetry module error."; exit 1; fi
 
-echo "  [3/4] Checking Axiomatic Kernel (Vd'χ)..."
+echo "  [3/5] Checking Solution Synthesis Engine (SSE)..."
+python3 -c "from src.chronos.solution_synthesis import SolutionSynthesisEngine; print('  -> SSE module OK.')"
+if [ $? -ne 0 ]; then echo "BUILD FAILED: Solution Synthesis module error."; exit 1; fi
+
+echo "  [4/5] Checking Axiomatic Kernel (Vd'χ)..."
 python3 -c "from src.chronos.kernel import AxiomaticKernel; print('  -> Kernel module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Kernel module error."; exit 1; fi
 
-echo "  [4/4] Checking Hyper-Dimensional State Manifold (Tp'χ)..."
+echo "  [5/5] Checking Hyper-Dimensional State Manifold (Tp'χ)..."
 python3 -c "from src.chronos.manifold import get_manifold_schemas; print('  -> Manifold module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Manifold module error."; exit 1; fi
 

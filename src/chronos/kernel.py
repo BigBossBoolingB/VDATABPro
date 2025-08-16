@@ -5,10 +5,11 @@ These parameters govern the system's hyper-computational and reasoning faculties
 """
 
 from dataclasses import dataclass
-from typing import List, Any, Union
+from typing import List, Any, Union, Optional
 
 from .acausal_learning import AcausalLearningEngine
 from .meta_symmetry import MetaSymmetryEngine
+from .solution_synthesis import SolutionSynthesisEngine
 
 @dataclass(frozen=True)
 class AxiomaticConstants:
@@ -47,6 +48,7 @@ class AxiomaticKernel:
         # Initialize and integrate the core reasoning faculties
         self.acausal_engine = AcausalLearningEngine()
         self.symmetry_engine = MetaSymmetryEngine()
+        self.synthesis_engine = SolutionSynthesisEngine()
 
         print("AxiomaticKernel: All faculties integrated. Awaiting coherence check.")
 
@@ -81,6 +83,33 @@ class AxiomaticKernel:
             return False
         return self.symmetry_engine.find_palindromic_symmetry(sequence)
 
+    def propose_solution(self, sequence: List[Any]) -> Optional[str]:
+        """
+        Engages the full reasoning loop to propose a solution for a given sequence.
+        This is the primary high-level function of the kernel.
+        """
+        print("\nK KERNEL: Initiating full reasoning loop: Observe, Predict, Synthesize, Propose...")
+        if not self._is_coherent:
+            print("Kernel is not coherent. Cannot propose solution.")
+            return None
+
+        # Predict: Use Acausal Learning
+        prediction = self.engage_acausal_learning(sequence)
+
+        # Observe: Use Meta-Symmetry
+        symmetry_found = self.engage_meta_symmetry(sequence)
+
+        # Synthesize
+        proposal = self.synthesis_engine.synthesize_solution(prediction, symmetry_found)
+
+        # Propose (after validation)
+        if self.synthesis_engine.validate_solution(proposal):
+            print(f"K KERNEL: Validated proposal generated: {proposal}")
+            return proposal
+        else:
+            print("K KERNEL: Synthesized proposal failed validation. No action proposed.")
+            return None
+
     def get_status(self) -> dict:
         """Returns the current status of the kernel."""
         return {
@@ -89,28 +118,24 @@ class AxiomaticKernel:
         }
 
 if __name__ == '__main__':
-    print("--- Simulating Axiomatic Kernel Initialization & Operation ---")
+    print("--- Simulating Axiomatic Kernel Full Reasoning Loop ---")
     kernel = AxiomaticKernel()
 
     # Check coherence first
     kernel.check_coherence()
 
     if kernel.get_status()["coherent"]:
-        print("\n--- Engaging New Faculties ---")
+        # Scenario 1: A predictable, negative trend is detected.
+        problem_sequence_1 = [-10, -20, -30, -40]
+        print(f"\n--- Scenario 1: Analyzing problem sequence {problem_sequence_1} ---")
+        solution1 = kernel.propose_solution(problem_sequence_1)
+        assert solution1 is None # This sequence is not symmetric, so no proposal.
 
-        # Engage Acausal Learning
-        linear_seq = [3, 6, 9, 12]
-        print(f"\nEngaging Ψ with sequence: {linear_seq}")
-        future = kernel.engage_acausal_learning(linear_seq)
-        assert future == 15
-
-        # Engage Meta-Symmetry
-        symmetric_seq = ["x", 1, "y", 1, "x"]
-        print(f"\nEngaging Γ with sequence: {symmetric_seq}")
-        is_symmetric = kernel.engage_meta_symmetry(symmetric_seq)
-        assert is_symmetric is True
-
-        print("\n--- Faculty Engagement Successful ---")
+        # Scenario 2: A symmetric pattern with a predictable negative trend.
+        problem_sequence_2 = [-1, -2, -3, -2, -1]
+        print(f"\n--- Scenario 2: Analyzing problem sequence {problem_sequence_2} ---")
+        solution2 = kernel.propose_solution(problem_sequence_2)
+        assert "Break the detected" in solution2
 
     print("\n--------------------------------------------")
     print("AxiomaticKernel (Vd'χ) standby.")
