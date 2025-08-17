@@ -47,15 +47,19 @@ echo "  [2/5] Checking Meta-Symmetry (Γ) Module..."
 python3 -c "from src.chronos.meta_symmetry import MetaSymmetryEngine; print('  -> Γ module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Meta-Symmetry module error."; exit 1; fi
 
-echo "  [3/5] Checking Solution Synthesis Engine (SSE)..."
+echo "  [3/6] Checking Solution Synthesis Engine (SSE)..."
 python3 -c "from src.chronos.solution_synthesis import SolutionSynthesisEngine; print('  -> SSE module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Solution Synthesis module error."; exit 1; fi
 
-echo "  [4/5] Checking Axiomatic Kernel (Vd'χ)..."
+echo "  [4/6] Checking Data Ingestion Engine..."
+python3 -c "from src.chronos.data_ingestion import DataIngestionEngine; print('  -> Data Ingestion module OK.')"
+if [ $? -ne 0 ]; then echo "BUILD FAILED: Data Ingestion module error."; exit 1; fi
+
+echo "  [5/6] Checking Axiomatic Kernel (Vd'χ)..."
 python3 -c "from src.chronos.kernel import AxiomaticKernel; print('  -> Kernel module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Kernel module error."; exit 1; fi
 
-echo "  [5/5] Checking Hyper-Dimensional State Manifold (Tp'χ)..."
+echo "  [6/6] Checking Hyper-Dimensional State Manifold (Tp'χ)..."
 python3 -c "from src.chronos.manifold import get_manifold_schemas; print('  -> Manifold module OK.')"
 if [ $? -ne 0 ]; then echo "BUILD FAILED: Manifold module error."; exit 1; fi
 
