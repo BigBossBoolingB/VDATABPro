@@ -74,3 +74,66 @@ Authored and Architected by:
 
 Josephis K. Wade
 The Architect
+
+---
+
+##  Chronos System Implementation
+
+The `VDataBProt` protocol serves as the foundational storage layer for the **Chronos v30.0 GOLD** reasoning system. The following sections detail how to run and interact with the implemented Chronos application.
+
+See `docs/architecture.md` for a full overview of the system architecture.
+
+### 🚀 Running with Docker (Recommended)
+
+The entire Chronos application is containerized for portability and ease of use.
+
+1.  **Build the Docker image:**
+    From the root of the project, run:
+    ```sh
+    docker build -t chronos-app .
+    ```
+
+2.  **Run the container:**
+    After building the image, you can use the CLI by running the container. The entrypoint is the `cli.py` script.
+    ```sh
+    docker run --rm chronos-app <command>
+    ```
+    For example, to see the help message:
+    ```sh
+    docker run --rm chronos-app --help
+    ```
+
+### 💻 CLI Usage
+
+The primary way to interact with the Chronos system is through the `cli.py` script.
+
+#### `propose` command
+
+The `propose` command engages the kernel's full reasoning loop on a given dataset.
+
+**Usage:**
+```sh
+python cli.py propose --data "<data>"
+```
+
+*   `--data`: A required, comma-separated string of numerical data.
+
+**Example:**
+This command analyzes a sequence that has a symmetric pattern and asks the system to propose a solution.
+
+```sh
+python cli.py propose --data "-10, -5, 0, -5, -10"
+```
+
+**Example Output:**
+```
+>>> Chronos System Engaged <<<
+CLI: Received data for analysis: '-10, -5, 0, -5, -10'
+...
+(Kernel and engine initialization messages)
+...
+--- SYSTEM OUTPUT ---
+STATUS: Solution Synthesized
+DETAILS: PROPOSAL: Break the detected symmetric pattern to avert predicted negative outcome.
+---------------------
+```
